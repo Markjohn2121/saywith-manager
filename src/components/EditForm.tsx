@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -159,8 +160,41 @@ export function EditForm() {
         {loadedData && (
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onUpdate)} className="space-y-6 animate-in fade-in-50">
-                <FormField control={form.control} name="name" render={({ field }) => ( <FormItem> <FormLabel>Name</FormLabel> <FormControl> <Input {...field} /> </FormControl> <FormMessage /> </FormItem> )}/>
-                <FormField control={form.control} name="template" render={({ field }) => ( <FormItem> <FormLabel>Template</FormLabel> <Select onValueChange={field.onChange} value={field.value}> <FormControl> <SelectTrigger> <SelectValue placeholder="Select a template" /> </SelectTrigger> </FormControl> <SelectContent> <SelectItem value="template1">Template 1</SelectItem> <SelectItem value="template2">Template 2</SelectItem> <SelectItem value="template3">Template 3</SelectItem> </SelectContent> </Select> <FormMessage /> </FormItem> )}/>
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Name</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="template"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Template</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a template" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="template1">Template 1</SelectItem>
+                          <SelectItem value="template2">Template 2</SelectItem>
+                          <SelectItem value="template3">Template 3</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 
                 <div className="space-y-4">
                   <FileUploader id="edit-media-file" label="Replace Media File" accept="image/*,video/*" file={mediaFile} onFileSelect={setMediaFile} />
@@ -179,7 +213,23 @@ export function EditForm() {
                   </FormItem>
                 </div>
 
-                <FormField control={form.control} name="enabled" render={({ field }) => ( <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-4"> <FormControl> <Checkbox checked={field.value} onCheckedChange={field.onChange} /> </FormControl> <div className="space-y-1 leading-none"> <FormLabel>Enable Status</FormLabel> </div> </FormItem> )}/>
+                <FormField
+                  control={form.control}
+                  name="enabled"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-4">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel>Enable Status</FormLabel>
+                      </div>
+                    </FormItem>
+                  )}
+                />
                 <Button type="submit" disabled={isUpdating} className="w-full bg-accent text-accent-foreground hover:bg-accent/90">
                     {isUpdating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                     Update Content
