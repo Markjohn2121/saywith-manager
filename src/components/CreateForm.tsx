@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -15,8 +16,12 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Copy } from "lucide-react";
+import { Loader2, Copy, Download } from "lucide-react";
 import { FileUploader } from "./FileUploader";
+import QRCode from 'qrcode';
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
+import Image from "next/image";
 
 const formSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
@@ -33,6 +38,10 @@ const readFileAsText = (file: File): Promise<string> => {
   });
 };
 
+const getFileExtension = (filename: string) => {
+    return filename.slice(((filename.lastIndexOf(".") - 1) >>> 0) + 2);
+}
+
 export function CreateForm() {
   const [mediaFile, setMediaFile] = useState<File | null>(null);
   const [audioFile, setAudioFile] = useState<File | null>(null);
@@ -40,6 +49,8 @@ export function CreateForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [newId, setNewId] = useState("");
+  const [qrCodes, setQrCodes] = useState<string[]>([]);
+  const [formName, setFormName] = useState("");
   const { toast } = useToast();
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -51,20 +62,53 @@ export function CreateForm() {
     },
   });
 
+  const generateQRCodes = async (id: string, mediaFile: File | null) => {
+      const qrCodePromises = [];
+      const logoUrl = '/SayWithLogo.svg';
+      const styles = [
+          { dotsOptions: { color: "#FFA500", type: "rounded" }, backgroundOptions: { color: "#121212" } },
+          { dotsOptions: { color: "#ADFF2F", type: "dots" }, backgroundOptions: { color: "#FFFFFF" } },
+          { dotsOptions: { color: "#121212", type: "classy-rounded" }, backgroundOptions: { color: "#FFA500" } },
+          { dotsOptions: { color: "#FFFFFF", type: "square" }, backgroundOptions: { color: "#ADFF2F" } }
+      ];
+
+      for (const style of styles) {
+        const qrCodeDataURL = await QRCode.toDataURL(`Saywith/${id}`, {
+          errorCorrectionLevel: 'H',
+          type: 'image/png',
+          width: 300,
+          color: {
+            dark: style.dotsOptions.color,
+            light: style.backgroundOptions.color,
+          },
+        });
+        qrCodePromises.push(qrCodeDataURL);
+      }
+      return await Promise.all(qrCodePromises);
+  };
+  
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setIsLoading(true);
 
     try {
+      const saywithRef = dbRef(db, 'Saywith');
+      const newSaywithRef = push(saywithRef);
+      const uniqueId = newSaywithRef.key!;
+      setNewId(uniqueId);
+      setFormName(values.name);
+
       let mediaUrl = "";
       if (mediaFile) {
-        const fileRef = storageRef(storage, `media/${Date.now()}_${mediaFile.name}`);
+        const mediaExtension = getFileExtension(mediaFile.name);
+        const fileRef = storageRef(storage, `messages/${uniqueId}/media.${mediaExtension}`);
         await uploadBytes(fileRef, mediaFile);
         mediaUrl = await getDownloadURL(fileRef);
       }
 
       let audioUrl = "";
       if (audioFile) {
-        const fileRef = storageRef(storage, `audio/${Date.now()}_${audioFile.name}`);
+        const audioExtension = getFileExtension(audioFile.name);
+        const fileRef = storageRef(storage, `messages/${uniqueId}/audio.${audioExtension}`);
         await uploadBytes(fileRef, audioFile);
         audioUrl = await getDownloadURL(fileRef);
       }
@@ -72,10 +116,8 @@ export function CreateForm() {
       let srtContent = "";
       if (srtFile) {
         srtContent = await readFileAsText(srtFile);
+        srtContent = srtContent.replace(/Transcribed by TurboScribe\.ai\. Go Unlimited to remove this message/g, "made by SayWith");
       }
-
-      const saywithRef = dbRef(db, 'Saywith');
-      const newSaywithRef = push(saywithRef);
 
       await set(newSaywithRef, {
         ...values,
@@ -83,8 +125,10 @@ export function CreateForm() {
         audioUrl,
         srtContent,
       });
+      
+      const generatedQRCodes = await generateQRCodes(uniqueId, mediaFile);
+      setQrCodes(generatedQRCodes);
 
-      setNewId(newSaywithRef.key!);
       setShowSuccessDialog(true);
       form.reset();
       setMediaFile(null);
@@ -108,6 +152,18 @@ export function CreateForm() {
         navigator.clipboard.writeText(newId);
         toast({ title: "Copied!", description: "The ID has been copied to your clipboard." });
     }
+  };
+
+  const downloadQRCodes = async () => {
+    const zip = new JSZip();
+    for (let i = 0; i < qrCodes.length; i++) {
+        const response = await fetch(qrCodes[i]);
+        const blob = await response.blob();
+        zip.file(`qrcode-style-${i+1}.png`, blob);
+    }
+    zip.generateAsync({type:"blob"}).then(function(content) {
+        saveAs(content, `${formName}-qrcodes.zip`);
+    });
   };
   
   return (
@@ -193,7 +249,7 @@ export function CreateForm() {
       </Card>
       
       <AlertDialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
-        <AlertDialogContent>
+        <AlertDialogContent className="max-w-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle>Success!</AlertDialogTitle>
             <AlertDialogDescription>
@@ -206,7 +262,19 @@ export function CreateForm() {
               <Copy className="h-4 w-4" />
             </Button>
           </div>
-          <AlertDialogFooter>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+            {qrCodes.map((src, index) => (
+                <div key={index} className="flex flex-col items-center gap-2">
+                    <Image src={src} alt={`QR Code Style ${index + 1}`} width={150} height={150} className="rounded-lg border border-border" />
+                    <p className="text-xs text-muted-foreground">Style {index + 1}</p>
+                </div>
+            ))}
+          </div>
+          <AlertDialogFooter className="mt-4">
+            <Button variant="outline" onClick={downloadQRCodes}>
+                <Download className="mr-2 h-4 w-4" />
+                Download All
+            </Button>
             <AlertDialogAction onClick={() => setShowSuccessDialog(false)}>Close</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

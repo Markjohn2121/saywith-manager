@@ -20,9 +20,9 @@ import { FileUploader } from "./FileUploader";
 import { Textarea } from "@/components/ui/textarea";
 
 const formSchema = z.object({
-  name: z.string().min(2, { message: "Name must be at least 2 characters." }),
-  template: z.string().min(1, { message: "Please select a template." }),
-  enabled: z.boolean().default(false),
+  name: z.string().optional(),
+  template: z.string().optional(),
+  enabled: z.boolean().optional(),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -31,6 +31,9 @@ interface DbData extends FormData {
     mediaUrl: string;
     audioUrl: string;
     srtContent: string;
+    name: string;
+    template: string;
+    enabled: boolean;
 }
 
 const readFileAsText = (file: File): Promise<string> => {
@@ -41,6 +44,10 @@ const readFileAsText = (file: File): Promise<string> => {
       reader.readAsText(file);
     });
 };
+
+const getFileExtension = (filename: string) => {
+    return filename.slice(((filename.lastIndexOf(".") - 1) >>> 0) + 2);
+}
 
 export function EditForm() {
   const [id, setId] = useState("");
@@ -79,6 +86,9 @@ export function EditForm() {
     }
     setIsFetching(true);
     setLoadedData(null);
+    setMediaFile(null);
+    setAudioFile(null);
+    setSrtFile(null);
     try {
       const snapshot = await get(dbRef(db, `Saywith/${id}`));
       if (snapshot.exists()) {
@@ -100,37 +110,44 @@ export function EditForm() {
     setIsUpdating(true);
 
     try {
-        let mediaUrl = loadedData.mediaUrl;
+        const updates: any = {};
+        
+        if (values.name && values.name !== loadedData.name) updates.name = values.name;
+        if (values.template && values.template !== loadedData.template) updates.template = values.template;
+        if (values.enabled !== loadedData.enabled) updates.enabled = values.enabled;
+
         if (mediaFile) {
-            const fileRef = storageRef(storage, `media/${Date.now()}_${mediaFile.name}`);
+            const mediaExtension = getFileExtension(mediaFile.name);
+            const fileRef = storageRef(storage, `messages/${id}/media.${mediaExtension}`);
             await uploadBytes(fileRef, mediaFile);
-            mediaUrl = await getDownloadURL(fileRef);
+            updates.mediaUrl = await getDownloadURL(fileRef);
         }
 
-        let audioUrl = loadedData.audioUrl;
         if (audioFile) {
-            const fileRef = storageRef(storage, `audio/${Date.now()}_${audioFile.name}`);
+            const audioExtension = getFileExtension(audioFile.name);
+            const fileRef = storageRef(storage, `messages/${id}/audio.${audioExtension}`);
             await uploadBytes(fileRef, audioFile);
-            audioUrl = await getDownloadURL(fileRef);
+            updates.audioUrl = await getDownloadURL(fileRef);
         }
 
         let finalSrtContent = srtContent;
         if (srtFile) {
             finalSrtContent = await readFileAsText(srtFile);
         }
+        finalSrtContent = finalSrtContent.replace(/Transcribed by TurboScribe\.ai\. Go Unlimited to remove this message/g, "made by SayWith");
+        if(finalSrtContent !== loadedData.srtContent) updates.srtContent = finalSrtContent;
         
-        await update(dbRef(db, `Saywith/${id}`), {
-            ...values,
-            mediaUrl,
-            audioUrl,
-            srtContent: finalSrtContent,
-        });
+        if (Object.keys(updates).length > 0) {
+            await update(dbRef(db, `Saywith/${id}`), updates);
+            toast({ title: "Success", description: "Content updated successfully." });
+            setLoadedData(prev => prev ? {...prev, ...updates} : null);
+        } else {
+            toast({ title: "No Changes", description: "No changes were detected to update." });
+        }
 
-      toast({ title: "Success", description: "Content updated successfully." });
       setMediaFile(null);
       setAudioFile(null);
       setSrtFile(null);
-      setLoadedData(prev => prev ? {...prev, ...values, mediaUrl, audioUrl, srtContent: finalSrtContent} : null);
 
     } catch (error) {
       console.error("Error updating entry:", error);
