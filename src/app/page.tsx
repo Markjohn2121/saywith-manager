@@ -1,10 +1,21 @@
+
+"use client";
+
+import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CreateForm } from "@/components/CreateForm";
 import { EditForm } from "@/components/EditForm";
 import { SayWithLogo } from "@/components/SayWithLogo";
+import { LockScreen } from "@/components/LockScreen";
 import { FilePlus2, Edit } from "lucide-react";
 
 export default function Home() {
+  const [isUnlocked, setIsUnlocked] = useState(false);
+
+  if (!isUnlocked) {
+    return <LockScreen onUnlock={() => setIsUnlocked(true)} />;
+  }
+
   return (
     <div className="flex min-h-screen w-full flex-col items-center bg-background text-foreground">
       <main className="flex flex-1 w-full max-w-4xl flex-col items-center justify-start p-4 md:p-8">

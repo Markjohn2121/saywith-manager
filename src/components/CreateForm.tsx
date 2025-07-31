@@ -52,6 +52,7 @@ export function CreateForm() {
   const [qrCodes, setQrCodes] = useState<string[]>([]);
   const [formName, setFormName] = useState("");
   const { toast } = useToast();
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://saywith.com/';
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -62,9 +63,9 @@ export function CreateForm() {
     },
   });
 
-  const generateQRCodes = async (id: string, mediaFile: File | null) => {
+  const generateQRCodes = async (id: string) => {
+      const fullUrl = `${baseUrl}${id}`;
       const qrCodePromises = [];
-      const logoUrl = '/SayWithLogo.svg';
       const styles = [
           { dotsOptions: { color: "#FFA500", type: "rounded" }, backgroundOptions: { color: "#121212" } },
           { dotsOptions: { color: "#ADFF2F", type: "dots" }, backgroundOptions: { color: "#FFFFFF" } },
@@ -73,7 +74,7 @@ export function CreateForm() {
       ];
 
       for (const style of styles) {
-        const qrCodeDataURL = await QRCode.toDataURL(`Saywith/${id}`, {
+        const qrCodeDataURL = await QRCode.toDataURL(fullUrl, {
           errorCorrectionLevel: 'H',
           type: 'image/png',
           width: 300,
@@ -126,7 +127,7 @@ export function CreateForm() {
         srtContent,
       });
       
-      const generatedQRCodes = await generateQRCodes(uniqueId, mediaFile);
+      const generatedQRCodes = await generateQRCodes(uniqueId);
       setQrCodes(generatedQRCodes);
 
       setShowSuccessDialog(true);
@@ -148,9 +149,10 @@ export function CreateForm() {
   };
 
   const copyToClipboard = () => {
+    const fullUrl = `${baseUrl}${newId}`;
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
-        navigator.clipboard.writeText(newId);
-        toast({ title: "Copied!", description: "The ID has been copied to your clipboard." });
+        navigator.clipboard.writeText(fullUrl);
+        toast({ title: "Copied!", description: "The URL has been copied to your clipboard." });
     }
   };
 
@@ -253,11 +255,11 @@ export function CreateForm() {
           <AlertDialogHeader>
             <AlertDialogTitle>Success!</AlertDialogTitle>
             <AlertDialogDescription>
-              Your content has been saved successfully. Here is your unique ID:
+              Your content has been saved successfully. Here is your unique URL:
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="flex items-center space-x-2 bg-muted p-3 rounded-md border border-border">
-            <pre className="text-sm text-foreground truncate flex-1 font-mono">{newId}</pre>
+            <pre className="text-sm text-foreground truncate flex-1 font-mono">{baseUrl}{newId}</pre>
             <Button variant="ghost" size="icon" onClick={copyToClipboard}>
               <Copy className="h-4 w-4" />
             </Button>
