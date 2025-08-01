@@ -18,11 +18,13 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, Search } from "lucide-react";
 import { FileUploader } from "./FileUploader";
 import { Textarea } from "@/components/ui/textarea";
+import templates from '@/lib/templates.json';
 
 const formSchema = z.object({
   name: z.string().optional(),
   template: z.string().optional(),
   enabled: z.boolean().optional(),
+  mute: z.boolean().optional(),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -34,6 +36,7 @@ interface DbData extends FormData {
     name: string;
     template: string;
     enabled: boolean;
+    mute: boolean;
 }
 
 const readFileAsText = (file: File): Promise<string> => {
@@ -62,7 +65,7 @@ export function EditForm() {
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
-    defaultValues: { name: "", template: "", enabled: false },
+    defaultValues: { name: "", template: "", enabled: false, mute: false },
   });
 
   useEffect(() => {
@@ -71,10 +74,11 @@ export function EditForm() {
         name: loadedData.name,
         template: loadedData.template,
         enabled: loadedData.enabled,
+        mute: loadedData.mute,
       });
       setSrtContent(loadedData.srtContent);
     } else {
-        form.reset({ name: "", template: "", enabled: false });
+        form.reset({ name: "", template: "", enabled: false, mute: false });
         setSrtContent("");
     }
   }, [loadedData, form]);
@@ -92,7 +96,8 @@ export function EditForm() {
     try {
       const snapshot = await get(dbRef(db, `Saywith/${id}`));
       if (snapshot.exists()) {
-        setLoadedData(snapshot.val());
+        const data = snapshot.val();
+        setLoadedData(data);
         toast({ title: "Success", description: "Data loaded successfully." });
       } else {
         toast({ variant: "destructive", title: "Not Found", description: "No data found for this ID." });
@@ -112,9 +117,12 @@ export function EditForm() {
     try {
         const updates: any = {};
         
-        if (values.name && values.name !== loadedData.name) updates.name = values.name;
-        if (values.template && values.template !== loadedData.template) updates.template = values.template;
-        if (values.enabled !== loadedData.enabled) updates.enabled = values.enabled;
+        const dirtyFields = form.formState.dirtyFields;
+
+        if (dirtyFields.name) updates.name = values.name;
+        if (dirtyFields.template) updates.template = values.template;
+        if (dirtyFields.enabled) updates.enabled = values.enabled;
+        if (dirtyFields.mute) updates.mute = values.mute;
 
         if (mediaFile) {
             const mediaExtension = getFileExtension(mediaFile.name);
@@ -148,6 +156,7 @@ export function EditForm() {
       setMediaFile(null);
       setAudioFile(null);
       setSrtFile(null);
+      form.reset(form.getValues());
 
     } catch (error) {
       console.error("Error updating entry:", error);
@@ -203,9 +212,11 @@ export function EditForm() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="template1">Template 1</SelectItem>
-                          <SelectItem value="template2">Template 2</SelectItem>
-                          <SelectItem value="template3">Template 3</SelectItem>
+                          {templates.map(template => (
+                            <SelectItem key={template.value} value={template.value}>
+                              {template.label}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -230,23 +241,42 @@ export function EditForm() {
                   </FormItem>
                 </div>
 
-                <FormField
-                  control={form.control}
-                  name="enabled"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-4">
-                      <FormControl>
-                        <Checkbox
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                      <div className="space-y-1 leading-none">
-                        <FormLabel>Enable Status</FormLabel>
-                      </div>
-                    </FormItem>
-                  )}
-                />
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="enabled"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-4">
+                        <FormControl>
+                          <Checkbox
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                        <div className="space-y-1 leading-none">
+                          <FormLabel>Enable Status</FormLabel>
+                        </div>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="mute"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-4">
+                        <FormControl>
+                          <Checkbox
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                        <div className="space-y-1 leading-none">
+                          <FormLabel>Mute</FormLabel>
+                        </div>
+                      </FormItem>
+                    )}
+                  />
+                </div>
                 <Button type="submit" disabled={isUpdating} className="w-full bg-accent text-accent-foreground hover:bg-accent/90">
                     {isUpdating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                     Update Content
@@ -258,3 +288,5 @@ export function EditForm() {
     </Card>
   );
 }
+
+    
