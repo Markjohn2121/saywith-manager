@@ -25,8 +25,8 @@ import Image from "next/image";
 import templates from '@/lib/templates.json';
 
 const formSchema = z.object({
-  name: z.string().min(2, { message: "Name must be at least 2 characters." }),
-  template: z.string().min(1, { message: "Please select a template." }),
+  name: z.string().optional(),
+  template: z.string().optional(),
   enabled: z.boolean().default(false),
   mute: z.boolean().default(false),
 });
@@ -99,7 +99,7 @@ export function CreateForm() {
       const newSaywithRef = push(saywithRef);
       const uniqueId = newSaywithRef.key!;
       setNewId(uniqueId);
-      setFormName(values.name);
+      setFormName(values.name || "");
 
       let mediaUrl = "";
       if (mediaFile) {
@@ -167,7 +167,7 @@ export function CreateForm() {
         zip.file(`qrcode-style-${i+1}.png`, blob);
     }
     zip.generateAsync({type:"blob"}).then(function(content) {
-        saveAs(content, `${formName}-qrcodes.zip`);
+        saveAs(content, `${formName || 'qrcodes'}-qrcodes.zip`);
     });
   };
   
