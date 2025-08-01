@@ -119,8 +119,8 @@ export function EditForm() {
         
         const dirtyFields = form.formState.dirtyFields;
 
-        if (dirtyFields.name) updates.name = values.name;
-        if (dirtyFields.template) updates.template = values.template;
+        if (dirtyFields.name && values.name) updates.name = values.name;
+        if (dirtyFields.template && values.template) updates.template = values.template;
         if (dirtyFields.enabled) updates.enabled = values.enabled;
         if (dirtyFields.mute) updates.mute = values.mute;
 
@@ -147,7 +147,7 @@ export function EditForm() {
         
         if (Object.keys(updates).length > 0) {
             await update(dbRef(db, `Saywith/${id}`), updates);
-            toast({ title: "Success", description: "Content updated successfully." });
+            toast({ title: "✅ Update Successful!", description: "Your content has been updated successfully.", className: "bg-green-500 text-white border-green-600" });
             setLoadedData(prev => prev ? {...prev, ...updates} : null);
         } else {
             toast({ title: "No Changes", description: "No changes were detected to update." });
@@ -288,5 +288,3 @@ export function EditForm() {
     </Card>
   );
 }
-
-    
