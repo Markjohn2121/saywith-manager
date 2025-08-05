@@ -123,8 +123,8 @@ export function EditForm({ storageProvider }: { storageProvider: StorageProvider
 
         if (dirtyFields.name && values.name) updates.name = values.name;
         if (dirtyFields.template && values.template) updates.template = values.template;
-        if (dirtyFields.enabled) updates.enabled = values.enabled;
-        if (dirtyFields.mute) updates.mute = values.mute;
+        if (dirtyFields.enabled !== undefined) updates.enabled = values.enabled;
+        if (dirtyFields.mute !== undefined) updates.mute = values.mute;
 
         if (storageProvider === 'firebase') {
           if (mediaFile) {
@@ -143,8 +143,16 @@ export function EditForm({ storageProvider }: { storageProvider: StorageProvider
         } else { // custom backend
             const formData = new FormData();
             formData.append('folder', id);
-            if (mediaFile) formData.append('file1', mediaFile);
-            if (audioFile) formData.append('file2', audioFile);
+            if (mediaFile) {
+              const mediaExtension = getFileExtension(mediaFile.name);
+              const newMediaFile = new File([mediaFile], `media.${mediaExtension}`, { type: mediaFile.type });
+              formData.append('file1', newMediaFile);
+            }
+            if (audioFile) {
+              const audioExtension = getFileExtension(audioFile.name);
+              const newAudioFile = new File([audioFile], `audio.${audioExtension}`, { type: audioFile.type });
+              formData.append('file2', newAudioFile);
+            }
 
             if (mediaFile || audioFile) {
                 const response = await fetch('https://giit-upload.onrender.com/upload', {
