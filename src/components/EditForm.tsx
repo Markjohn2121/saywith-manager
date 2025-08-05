@@ -19,6 +19,8 @@ import { Loader2, Search } from "lucide-react";
 import { FileUploader } from "./FileUploader";
 import { Textarea } from "@/components/ui/textarea";
 import templates from '@/lib/templates.json';
+import type { StorageProvider } from "@/app/page";
+
 
 const formSchema = z.object({
   name: z.string().optional(),
@@ -52,7 +54,7 @@ const getFileExtension = (filename: string) => {
     return filename.slice(((filename.lastIndexOf(".") - 1) >>> 0) + 2);
 }
 
-export function EditForm() {
+export function EditForm({ storageProvider }: { storageProvider: StorageProvider }) {
   const [id, setId] = useState("");
   const [loadedData, setLoadedData] = useState<DbData | null>(null);
   const [mediaFile, setMediaFile] = useState<File | null>(null);
@@ -124,19 +126,43 @@ export function EditForm() {
         if (dirtyFields.enabled) updates.enabled = values.enabled;
         if (dirtyFields.mute) updates.mute = values.mute;
 
-        if (mediaFile) {
-            const mediaExtension = getFileExtension(mediaFile.name);
-            const fileRef = storageRef(storage, `messages/${id}/media.${mediaExtension}`);
-            await uploadBytes(fileRef, mediaFile);
-            updates.mediaUrl = await getDownloadURL(fileRef);
-        }
+        if (storageProvider === 'firebase') {
+          if (mediaFile) {
+              const mediaExtension = getFileExtension(mediaFile.name);
+              const fileRef = storageRef(storage, `messages/${id}/media.${mediaExtension}`);
+              await uploadBytes(fileRef, mediaFile);
+              updates.mediaUrl = await getDownloadURL(fileRef);
+          }
 
-        if (audioFile) {
-            const audioExtension = getFileExtension(audioFile.name);
-            const fileRef = storageRef(storage, `messages/${id}/audio.${audioExtension}`);
-            await uploadBytes(fileRef, audioFile);
-            updates.audioUrl = await getDownloadURL(fileRef);
+          if (audioFile) {
+              const audioExtension = getFileExtension(audioFile.name);
+              const fileRef = storageRef(storage, `messages/${id}/audio.${audioExtension}`);
+              await uploadBytes(fileRef, audioFile);
+              updates.audioUrl = await getDownloadURL(fileRef);
+          }
+        } else { // custom backend
+            const formData = new FormData();
+            formData.append('folder', id);
+            if (mediaFile) formData.append('file1', mediaFile);
+            if (audioFile) formData.append('file2', audioFile);
+
+            if (mediaFile || audioFile) {
+                const response = await fetch('https://giit-upload.onrender.com/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Upload failed');
+                }
+
+                const responseData = await response.json();
+                if (responseData.file1URL) updates.mediaUrl = responseData.file1URL;
+                if (responseData.file2URL) updates.audioUrl = responseData.file2URL;
+            }
         }
+        
 
         let finalSrtContent = srtContent;
         if (srtFile) {

@@ -23,6 +23,7 @@ import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import Image from "next/image";
 import templates from '@/lib/templates.json';
+import type { StorageProvider } from "@/app/page";
 
 const formSchema = z.object({
   name: z.string().optional(),
@@ -44,7 +45,7 @@ const getFileExtension = (filename: string) => {
     return filename.slice(((filename.lastIndexOf(".") - 1) >>> 0) + 2);
 }
 
-export function CreateForm() {
+export function CreateForm({ storageProvider }: { storageProvider: StorageProvider }) {
   const [mediaFile, setMediaFile] = useState<File | null>(null);
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [srtFile, setSrtFile] = useState<File | null>(null);
@@ -102,19 +103,42 @@ export function CreateForm() {
       setFormName(values.name || "");
 
       let mediaUrl = "";
-      if (mediaFile) {
-        const mediaExtension = getFileExtension(mediaFile.name);
-        const fileRef = storageRef(storage, `messages/${uniqueId}/media.${mediaExtension}`);
-        await uploadBytes(fileRef, mediaFile);
-        mediaUrl = await getDownloadURL(fileRef);
-      }
-
       let audioUrl = "";
-      if (audioFile) {
-        const audioExtension = getFileExtension(audioFile.name);
-        const fileRef = storageRef(storage, `messages/${uniqueId}/audio.${audioExtension}`);
-        await uploadBytes(fileRef, audioFile);
-        audioUrl = await getDownloadURL(fileRef);
+
+      if (storageProvider === "firebase") {
+        if (mediaFile) {
+          const mediaExtension = getFileExtension(mediaFile.name);
+          const fileRef = storageRef(storage, `messages/${uniqueId}/media.${mediaExtension}`);
+          await uploadBytes(fileRef, mediaFile);
+          mediaUrl = await getDownloadURL(fileRef);
+        }
+        if (audioFile) {
+          const audioExtension = getFileExtension(audioFile.name);
+          const fileRef = storageRef(storage, `messages/${uniqueId}/audio.${audioExtension}`);
+          await uploadBytes(fileRef, audioFile);
+          audioUrl = await getDownloadURL(fileRef);
+        }
+      } else { // custom backend
+        const formData = new FormData();
+        formData.append('folder', uniqueId);
+        if (mediaFile) formData.append('file1', mediaFile);
+        if (audioFile) formData.append('file2', audioFile);
+
+        if (mediaFile || audioFile) {
+            const response = await fetch('https://giit-upload.onrender.com/upload', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Upload failed');
+            }
+
+            const responseData = await response.json();
+            if (responseData.file1URL) mediaUrl = responseData.file1URL;
+            if (responseData.file2URL) audioUrl = responseData.file2URL;
+        }
       }
 
       let srtContent = "";
@@ -311,5 +335,3 @@ export function CreateForm() {
     </>
   );
 }
-
-    
