@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { useForm } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { ref as dbRef, set, push } from "firebase/database";
@@ -167,7 +167,7 @@ export function CreateForm({ storageProvider }: { storageProvider: StorageProvid
       setQrCodes(generatedQRCodes);
 
       setShowSuccessDialog(true);
-      form.reset();
+      form.reset({ name: "", template: "", enabled: false, mute: false });
       setMediaFile(null);
       setAudioFile(null);
       setSrtFile(null);
@@ -234,7 +234,7 @@ export function CreateForm({ storageProvider }: { storageProvider: StorageProvid
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Template</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select a template" />
@@ -344,3 +344,5 @@ export function CreateForm({ storageProvider }: { storageProvider: StorageProvid
     </>
   );
 }
+
+    
