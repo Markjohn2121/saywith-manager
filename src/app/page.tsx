@@ -27,6 +27,16 @@ export default function Home() {
   const [storageProvider, setStorageProvider] = useState<StorageProvider>("firebase");
 
   useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').then(registration => {
+          console.log('SW registered: ', registration);
+        }).catch(registrationError => {
+          console.log('SW registration failed: ', registrationError);
+        });
+      });
+    }
+
     const savedProvider = localStorage.getItem("storageProvider") as StorageProvider;
     if (savedProvider) {
       setStorageProvider(savedProvider);
