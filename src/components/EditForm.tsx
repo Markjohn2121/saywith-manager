@@ -143,14 +143,16 @@ export function EditForm({ storageProvider }: { storageProvider: StorageProvider
         } else { // custom backend
             const formData = new FormData();
             formData.append('folder', id);
+            const timestamp = Date.now();
+
             if (mediaFile) {
               const mediaExtension = getFileExtension(mediaFile.name);
-              const newMediaFile = new File([mediaFile], `media.${mediaExtension}`, { type: mediaFile.type });
+              const newMediaFile = new File([mediaFile], `media-${timestamp}.${mediaExtension}`, { type: mediaFile.type });
               formData.append('file1', newMediaFile);
             }
             if (audioFile) {
               const audioExtension = getFileExtension(audioFile.name);
-              const newAudioFile = new File([audioFile], `audio.${audioExtension}`, { type: audioFile.type });
+              const newAudioFile = new File([audioFile], `audio-${timestamp}.${audioExtension}`, { type: audioFile.type });
               formData.append('file2', newAudioFile);
             }
 
@@ -322,5 +324,7 @@ export function EditForm({ storageProvider }: { storageProvider: StorageProvider
     </Card>
   );
 }
+
+    
 
     
