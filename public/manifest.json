@@ -1,6 +1,6 @@
 {
   "name": "SayWith Manager - Admin Dashboard",
-  "short_name": "SayWithAdmin",
+  "short_name": "SW Admin",
   "description": "Manage your SayWith media content with ease.",
   "start_url": "/",
   "display": "standalone",
