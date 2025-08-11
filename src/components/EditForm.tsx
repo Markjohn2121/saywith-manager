@@ -125,18 +125,18 @@ export function EditForm({ storageProvider }: { storageProvider: StorageProvider
         if (dirtyFields.template && values.template) updates.template = values.template;
         if (dirtyFields.enabled !== undefined) updates.enabled = values.enabled;
         if (dirtyFields.mute !== undefined) updates.mute = values.mute;
-
+const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
         if (storageProvider === 'firebase') {
           if (mediaFile) {
               const mediaExtension = getFileExtension(mediaFile.name);
-              const fileRef = storageRef(storage, `messages/${id}/media.${mediaExtension}`);
+              const fileRef = storageRef(storage, `messages/${id}/media_${timestamp}.${mediaExtension}`);
               await uploadBytes(fileRef, mediaFile);
               updates.mediaUrl = await getDownloadURL(fileRef);
           }
 
           if (audioFile) {
               const audioExtension = getFileExtension(audioFile.name);
-              const fileRef = storageRef(storage, `messages/${id}/audio.${audioExtension}`);
+              const fileRef = storageRef(storage, `messages/${id}/audio_${timestamp}.${audioExtension}`);
               await uploadBytes(fileRef, audioFile);
               updates.audioUrl = await getDownloadURL(fileRef);
           }
@@ -145,12 +145,12 @@ export function EditForm({ storageProvider }: { storageProvider: StorageProvider
             formData.append('folder', id);
             if (mediaFile) {
               const mediaExtension = getFileExtension(mediaFile.name);
-              const newMediaFile = new File([mediaFile], `media.${mediaExtension}`, { type: mediaFile.type });
+              const newMediaFile = new File([mediaFile], `media_${timestamp}.${mediaExtension}`, { type: mediaFile.type });
               formData.append('file1', newMediaFile);
             }
             if (audioFile) {
               const audioExtension = getFileExtension(audioFile.name);
-              const newAudioFile = new File([audioFile], `audio.${audioExtension}`, { type: audioFile.type });
+              const newAudioFile = new File([audioFile], `audio_${timestamp}.${audioExtension}`, { type: audioFile.type });
               formData.append('file2', newAudioFile);
             }
 
