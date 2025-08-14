@@ -16,12 +16,8 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Copy, Download } from "lucide-react";
+import { Loader2, Copy, Link as LinkIcon } from "lucide-react";
 import { FileUploader } from "./FileUploader";
-import QRCode from 'qrcode';
-import JSZip from 'jszip';
-import { saveAs } from 'file-saver';
-import Image from "next/image";
 import templates from '@/lib/templates.json';
 import type { StorageProvider } from "@/app/page";
 
@@ -52,10 +48,9 @@ export function CreateForm({ storageProvider }: { storageProvider: StorageProvid
   const [isLoading, setIsLoading] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [newId, setNewId] = useState("");
-  const [qrCodes, setQrCodes] = useState<string[]>([]);
-  const [formName, setFormName] = useState("");
   const { toast } = useToast();
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://saywith.com/';
+  const qrCodeGeneratorUrl = process.env.NEXT_PUBLIC_QR_CODE_GENERATOR_URL;
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -67,31 +62,6 @@ export function CreateForm({ storageProvider }: { storageProvider: StorageProvid
     },
   });
 
-  const generateQRCodes = async (id: string) => {
-      const fullUrl = `${baseUrl}${id}`;
-      const qrCodePromises = [];
-      const styles = [
-          { dotsOptions: { color: "#FFA500", type: "rounded" }, backgroundOptions: { color: "#121212" } },
-          { dotsOptions: { color: "#ADFF2F", type: "dots" }, backgroundOptions: { color: "#FFFFFF" } },
-          { dotsOptions: { color: "#121212", type: "classy-rounded" }, backgroundOptions: { color: "#FFA500" } },
-          { dotsOptions: { color: "#FFFFFF", type: "square" }, backgroundOptions: { color: "#ADFF2F" } }
-      ];
-
-      for (const style of styles) {
-        const qrCodeDataURL = await QRCode.toDataURL(fullUrl, {
-          errorCorrectionLevel: 'H',
-          type: 'image/png',
-          width: 300,
-          color: {
-            dark: style.dotsOptions.color,
-            light: style.backgroundOptions.color,
-          },
-        });
-        qrCodePromises.push(qrCodeDataURL);
-      }
-      return await Promise.all(qrCodePromises);
-  };
-  
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setIsLoading(true);
 
@@ -100,10 +70,10 @@ export function CreateForm({ storageProvider }: { storageProvider: StorageProvid
       const newSaywithRef = push(saywithRef);
       const uniqueId = newSaywithRef.key!;
       setNewId(uniqueId);
-      setFormName(values.name || "");
-
+      
       let mediaUrl = "";
       let audioUrl = "";
+      const timestamp = Date.now();
 
       if (storageProvider === "firebase") {
         if (mediaFile) {
@@ -121,8 +91,7 @@ export function CreateForm({ storageProvider }: { storageProvider: StorageProvid
       } else { // custom backend
         const formData = new FormData();
         formData.append('folder', uniqueId);
-        const timestamp = Date.now();
-
+        
         if (mediaFile) {
           const mediaExtension = getFileExtension(mediaFile.name);
           const newMediaFile = new File([mediaFile], `media-${timestamp}.${mediaExtension}`, { type: mediaFile.type });
@@ -148,6 +117,7 @@ export function CreateForm({ storageProvider }: { storageProvider: StorageProvid
             const responseData = await response.json();
             if (responseData.file1URL) mediaUrl = responseData.file1URL;
             if (responseData.file2URL) audioUrl = responseData.file2URL;
+            toast({ title: "✅ Upload Successful!", description: "Files have been uploaded to your custom backend." });
         }
       }
 
@@ -164,10 +134,8 @@ export function CreateForm({ storageProvider }: { storageProvider: StorageProvid
         srtContent,
       });
       
-      const generatedQRCodes = await generateQRCodes(uniqueId);
-      setQrCodes(generatedQRCodes);
-
       setShowSuccessDialog(true);
+      copyToClipboard(uniqueId, {silent: true});
       form.reset({ name: "", template: "", enabled: false, mute: false });
       setMediaFile(null);
       setAudioFile(null);
@@ -185,26 +153,31 @@ export function CreateForm({ storageProvider }: { storageProvider: StorageProvid
     }
   };
 
-  const copyToClipboard = () => {
-    const fullUrl = `${baseUrl}${newId}`;
+  const copyToClipboard = (id: string, options?: {silent: boolean}) => {
+    const fullUrl = `${baseUrl}${id}`;
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
         navigator.clipboard.writeText(fullUrl);
-        toast({ title: "Copied!", description: "The URL has been copied to your clipboard." });
+        if (!options?.silent) {
+            toast({ title: "Copied!", description: "The URL has been copied to your clipboard." });
+        }
     }
-  };
-
-  const downloadQRCodes = async () => {
-    const zip = new JSZip();
-    for (let i = 0; i < qrCodes.length; i++) {
-        const response = await fetch(qrCodes[i]);
-        const blob = await response.blob();
-        zip.file(`qrcode-style-${i+1}.png`, blob);
-    }
-    zip.generateAsync({type:"blob"}).then(function(content) {
-        saveAs(content, `${formName || 'qrcodes'}-qrcodes.zip`);
-    });
   };
   
+  const openQrGenerator = () => {
+      const fullUrl = `${baseUrl}${newId}`;
+      if (qrCodeGeneratorUrl) {
+          const url = new URL(qrCodeGeneratorUrl);
+          url.searchParams.set('data', fullUrl);
+          window.open(url, '_blank');
+      } else {
+        toast({
+            variant: "destructive",
+            title: "Configuration Error",
+            description: "QR Code Generator URL is not configured in your environment variables.",
+        });
+      }
+  };
+
   return (
     <>
       <Card className="border-border">
@@ -312,31 +285,23 @@ export function CreateForm({ storageProvider }: { storageProvider: StorageProvid
       </Card>
       
       <AlertDialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
-        <AlertDialogContent className="max-w-2xl">
+        <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Success!</AlertDialogTitle>
             <AlertDialogDescription>
-              Your content has been saved successfully. Here is your unique URL:
+              Your content has been saved. The unique URL has been copied to your clipboard.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="flex items-center space-x-2 bg-muted p-3 rounded-md border border-border">
             <pre className="text-sm text-foreground truncate flex-1 font-mono">{baseUrl}{newId}</pre>
-            <Button variant="ghost" size="icon" onClick={copyToClipboard}>
+            <Button variant="ghost" size="icon" onClick={() => copyToClipboard(newId)}>
               <Copy className="h-4 w-4" />
             </Button>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-            {qrCodes.map((src, index) => (
-                <div key={index} className="flex flex-col items-center gap-2">
-                    <Image src={src} alt={`QR Code Style ${index + 1}`} width={150} height={150} className="rounded-lg border border-border" />
-                    <p className="text-xs text-muted-foreground">Style {index + 1}</p>
-                </div>
-            ))}
-          </div>
-          <AlertDialogFooter className="mt-4">
-            <Button variant="outline" onClick={downloadQRCodes}>
-                <Download className="mr-2 h-4 w-4" />
-                Download All
+          <AlertDialogFooter className="mt-4 sm:justify-between">
+            <Button variant="outline" onClick={openQrGenerator}>
+                <LinkIcon className="mr-2 h-4 w-4" />
+                Generate QR Code
             </Button>
             <AlertDialogAction onClick={() => setShowSuccessDialog(false)}>Close</AlertDialogAction>
           </AlertDialogFooter>
@@ -345,5 +310,3 @@ export function CreateForm({ storageProvider }: { storageProvider: StorageProvid
     </>
   );
 }
-
-    
