@@ -28,15 +28,6 @@ const formSchema = z.object({
   mute: z.boolean().default(false),
 });
 
-const readFileAsText = (file: File): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsText(file);
-  });
-};
-
 const getFileExtension = (filename: string) => {
     return filename.slice(((filename.lastIndexOf(".") - 1) >>> 0) + 2);
 }
@@ -73,6 +64,7 @@ export function CreateForm({ storageProvider }: { storageProvider: StorageProvid
       
       let mediaUrl = "";
       let audioUrl = "";
+      let srtUrl = "";
       const timestamp = Date.now();
 
       if (storageProvider === "firebase") {
@@ -87,6 +79,12 @@ export function CreateForm({ storageProvider }: { storageProvider: StorageProvid
           const fileRef = storageRef(storage, `messages/${uniqueId}/audio.${audioExtension}`);
           await uploadBytes(fileRef, audioFile);
           audioUrl = await getDownloadURL(fileRef);
+        }
+        if (srtFile) {
+            const srtExtension = getFileExtension(srtFile.name);
+            const fileRef = storageRef(storage, `messages/${uniqueId}/srt.${srtExtension}`);
+            await uploadBytes(fileRef, srtFile);
+            srtUrl = await getDownloadURL(fileRef);
         }
       } else { // custom backend
         const formData = new FormData();
@@ -121,17 +119,11 @@ export function CreateForm({ storageProvider }: { storageProvider: StorageProvid
         }
       }
 
-      let srtContent = "";
-      if (srtFile) {
-        srtContent = await readFileAsText(srtFile);
-        srtContent = srtContent.replace(/Transcribed by TurboScribe\.ai\. Go Unlimited to remove this message/g, "made by SayWith");
-      }
-
       await set(newSaywithRef, {
         ...values,
         mediaUrl,
         audioUrl,
-        srtContent,
+        srtUrl,
       });
       
       setShowSuccessDialog(true);
@@ -310,3 +302,5 @@ export function CreateForm({ storageProvider }: { storageProvider: StorageProvid
     </>
   );
 }
+
+    

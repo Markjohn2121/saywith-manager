@@ -17,7 +17,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Search } from "lucide-react";
 import { FileUploader } from "./FileUploader";
-import { Textarea } from "@/components/ui/textarea";
 import templates from '@/lib/templates.json';
 import type { StorageProvider } from "@/app/page";
 
@@ -34,21 +33,12 @@ type FormData = z.infer<typeof formSchema>;
 interface DbData extends FormData {
     mediaUrl: string;
     audioUrl: string;
-    srtContent: string;
+    srtUrl: string;
     name: string;
     template: string;
     enabled: boolean;
     mute: boolean;
 }
-
-const readFileAsText = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsText(file);
-    });
-};
 
 const getFileExtension = (filename: string) => {
     return filename.slice(((filename.lastIndexOf(".") - 1) >>> 0) + 2);
@@ -60,7 +50,6 @@ export function EditForm({ storageProvider }: { storageProvider: StorageProvider
   const [mediaFile, setMediaFile] = useState<File | null>(null);
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [srtFile, setSrtFile] = useState<File | null>(null);
-  const [srtContent, setSrtContent] = useState("");
   const [isFetching, setIsFetching] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const { toast } = useToast();
@@ -78,10 +67,8 @@ export function EditForm({ storageProvider }: { storageProvider: StorageProvider
         enabled: loadedData.enabled,
         mute: loadedData.mute,
       });
-      setSrtContent(loadedData.srtContent);
     } else {
         form.reset({ name: "", template: "", enabled: false, mute: false });
-        setSrtContent("");
     }
   }, [loadedData, form]);
 
@@ -140,6 +127,12 @@ export function EditForm({ storageProvider }: { storageProvider: StorageProvider
               await uploadBytes(fileRef, audioFile);
               updates.audioUrl = await getDownloadURL(fileRef);
           }
+           if (srtFile) {
+              const srtExtension = getFileExtension(srtFile.name);
+              const fileRef = storageRef(storage, `messages/${id}/srt.${srtExtension}`);
+              await uploadBytes(fileRef, srtFile);
+              updates.srtUrl = await getDownloadURL(fileRef);
+          }
         } else { // custom backend
             const formData = new FormData();
             formData.append('folder', id);
@@ -172,14 +165,6 @@ export function EditForm({ storageProvider }: { storageProvider: StorageProvider
                 if (responseData.file2URL) updates.audioUrl = responseData.file2URL;
             }
         }
-        
-
-        let finalSrtContent = srtContent;
-        if (srtFile) {
-            finalSrtContent = await readFileAsText(srtFile);
-        }
-        finalSrtContent = finalSrtContent.replace(/Transcribed by TurboScribe\.ai\. Go Unlimited to remove this message/g, "made by SayWith");
-        if(finalSrtContent !== loadedData.srtContent) updates.srtContent = finalSrtContent;
         
         if (Object.keys(updates).length > 0) {
             await update(dbRef(db, `Saywith/${id}`), updates);
@@ -268,13 +253,7 @@ export function EditForm({ storageProvider }: { storageProvider: StorageProvider
                   {loadedData.audioUrl && !audioFile && <p className="text-sm text-muted-foreground">Current: <a href={loadedData.audioUrl} target="_blank" rel="noopener noreferrer" className="underline hover:text-primary">Listen to Audio</a></p>}
 
                   <FileUploader id="edit-srt-file" label="Replace SRT/Text File" accept=".srt,.txt" file={srtFile} onFileSelect={setSrtFile} />
-                  <FormItem>
-                      <FormLabel>SRT/Text Content</FormLabel>
-                      <FormControl>
-                          <Textarea placeholder="SRT/Text content will be displayed here." value={srtContent} onChange={(e) => setSrtContent(e.target.value)} rows={8} />
-                      </FormControl>
-                      <FormMessage />
-                  </FormItem>
+                  {loadedData.srtUrl && !srtFile && <p className="text-sm text-muted-foreground">Current: <a href={loadedData.srtUrl} target="_blank" rel="noopener noreferrer" className="underline hover:text-primary">View SRT/Text</a></p>}
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -324,7 +303,5 @@ export function EditForm({ storageProvider }: { storageProvider: StorageProvider
     </Card>
   );
 }
-
-    
 
     
