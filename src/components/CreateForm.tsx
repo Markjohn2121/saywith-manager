@@ -16,7 +16,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Copy } from "lucide-react";
+import { Loader2, Copy, QrCode } from "lucide-react";
 import { FileUploader } from "./FileUploader";
 import templates from '@/lib/templates.json';
 import type { StorageProvider } from "@/app/page";
@@ -50,6 +50,7 @@ export function CreateForm({ storageProvider }: { storageProvider: StorageProvid
   const [newId, setNewId] = useState("");
   const { toast } = useToast();
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://saywith.com/';
+  const qrCodeGeneratorUrl = process.env.NEXT_PUBLIC_QR_CODE_GENERATOR_URL;
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -60,6 +61,13 @@ export function CreateForm({ storageProvider }: { storageProvider: StorageProvid
       mute: false,
     },
   });
+
+  const copyToClipboard = (text: string) => {
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+        navigator.clipboard.writeText(text);
+        toast({ title: "Copied!", description: "The URL has been copied to your clipboard." });
+    }
+  };
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setIsLoading(true);
@@ -133,6 +141,7 @@ export function CreateForm({ storageProvider }: { storageProvider: StorageProvid
       });
       
       setShowSuccessDialog(true);
+      copyToClipboard(`${baseUrl}${uniqueId}`);
       form.reset({ name: "", template: "", enabled: false, mute: false });
       setMediaFile(null);
       setAudioFile(null);
@@ -150,11 +159,16 @@ export function CreateForm({ storageProvider }: { storageProvider: StorageProvid
     }
   };
 
-  const copyToClipboard = () => {
+  const openQrGenerator = () => {
     const fullUrl = `${baseUrl}${newId}`;
-    if (typeof navigator !== 'undefined' && navigator.clipboard) {
-        navigator.clipboard.writeText(fullUrl);
-        toast({ title: "Copied!", description: "The URL has been copied to your clipboard." });
+    if (qrCodeGeneratorUrl) {
+      window.open(`${qrCodeGeneratorUrl}${encodeURIComponent(fullUrl)}`, '_blank');
+    } else {
+      toast({
+        variant: "destructive",
+        title: "Configuration Error",
+        description: "QR code generator URL is not set in environment variables.",
+      });
     }
   };
   
@@ -269,16 +283,20 @@ export function CreateForm({ storageProvider }: { storageProvider: StorageProvid
           <AlertDialogHeader>
             <AlertDialogTitle>Success!</AlertDialogTitle>
             <AlertDialogDescription>
-              Your content has been saved successfully. Here is your unique URL:
+              Your content has been saved. The URL has been copied to your clipboard.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="flex items-center space-x-2 bg-muted p-3 rounded-md border border-border">
             <pre className="text-sm text-foreground truncate flex-1 font-mono">{baseUrl}{newId}</pre>
-            <Button variant="ghost" size="icon" onClick={copyToClipboard}>
+            <Button variant="ghost" size="icon" onClick={() => copyToClipboard(`${baseUrl}${newId}`)}>
               <Copy className="h-4 w-4" />
             </Button>
           </div>
-          <AlertDialogFooter className="mt-4">
+          <AlertDialogFooter className="mt-4 sm:justify-between gap-2">
+            <Button variant="outline" onClick={openQrGenerator}>
+              <QrCode className="mr-2 h-4 w-4" />
+              Generate QR Art
+            </Button>
             <AlertDialogAction onClick={() => setShowSuccessDialog(false)}>Close</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
