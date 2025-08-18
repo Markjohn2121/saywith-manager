@@ -168,7 +168,7 @@ export function CreateForm({ storageProvider }: { storageProvider: StorageProvid
   const openQrGenerator = () => {
     const fullUrl = `${baseUrl}${newId}`;
     if (qrCodeGeneratorUrl) {
-      window.open(`${qrCodeGeneratorUrl}${encodeURIComponent(fullUrl)}`, '_blank');
+      window.open(`${qrCodeGeneratorUrl}${fullUrl}`, '_blank');
     } else {
       toast({
         variant: "destructive",
