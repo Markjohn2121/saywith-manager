@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { ref as dbRef, set, push } from "firebase/database";
+import { ref as dbRef, set, child } from "firebase/database";
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, storage } from "@/lib/firebase";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,12 @@ const formSchema = z.object({
   enabled: z.boolean().default(false),
   mute: z.boolean().default(false),
 });
+
+const generateUniqueId = () => {
+  const timestamp = Date.now().toString(36);
+  const randomPart = Math.random().toString(36).substring(2, 5);
+  return (timestamp + randomPart).slice(0, 9);
+};
 
 const readFileAsText = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
@@ -74,8 +80,8 @@ export function CreateForm({ storageProvider }: { storageProvider: StorageProvid
 
     try {
       const saywithRef = dbRef(db, 'Saywith');
-      const newSaywithRef = push(saywithRef);
-      const uniqueId = newSaywithRef.key!;
+      const uniqueId = generateUniqueId();
+      const newSaywithRef = child(saywithRef, uniqueId);
       setNewId(uniqueId);
 
       let mediaUrl = "";
