@@ -20,7 +20,7 @@ import { Loader2, Copy, QrCode } from "lucide-react";
 import { FileUploader } from "./FileUploader";
 import templates from '@/lib/templates.json';
 import type { StorageProvider } from "@/app/page";
-
+  
 const formSchema = z.object({
   name: z.string().optional(),
   template: z.string().optional(),
